@@ -1,57 +1,34 @@
-# Base image
-FROM node:18-alpine AS base
+# Gunakan image resmi Node.js sebagai base
+FROM node:22-alpine AS base
 
-# Install dependencies only when needed
-FROM base AS deps
+# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
-COPY package.json package-lock.json* ./
+# Salin package.json dan package-lock.json untuk instalasi dependencies
+COPY package.json package-lock.json ./
 
-# Install dependencies
+# Instal dependencies menggunakan npm ci untuk lingkungan produksi
 RUN npm ci
 
-# Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Salin seluruh project
 COPY . .
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# Build the application
+# Build aplikasi Next.js
 RUN npm run build
 
-# Production image, copy all the files and run next
-FROM base AS runner
+# Gunakan image yang lebih ringan untuk menjalankan aplikasi
+FROM node:22-alpine AS runtime
+
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+# Salin hasil build dari stage sebelumnya
+COPY --from=base /app/.next .next
+COPY --from=base /app/public public
+COPY --from=base /app/package.json .
+COPY --from=base /app/node_modules node_modules
 
-# Create a non-root user to run the app and own app files
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy built app
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-# Set the correct permission for prerender cache
-RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
-
-# Switch to non-root user
-USER nextjs
-
-# Expose the listening port
+# Port yang digunakan oleh Next.js
 EXPOSE 3000
 
-# Environment variables must be redefined at run time
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
-# Start the app
-CMD ["node", "server.js"]
+# Perintah untuk menjalankan aplikasi Next.js
+CMD ["npm", "run", "start"]

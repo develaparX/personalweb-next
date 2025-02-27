@@ -1,14 +1,10 @@
-version: "3"
+version: "3.8"
 
 services:
   nextjs:
-    container_name: portfolio-site
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: always
+    build: .
     ports:
       - "127.0.0.1:3000:3000"
-    # Tambahkan environment variables jika diperlukan
-    # environment:
-    #   - DATABASE_URL=your_database_url
+    environment:
+      NODE_ENV: production
+    restart: always
